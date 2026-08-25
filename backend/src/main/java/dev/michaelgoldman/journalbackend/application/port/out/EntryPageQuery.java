@@ -6,7 +6,7 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 public record EntryPageQuery(
-        int pageNumber, int pageSize, @Nullable String search, Set<Mood> moods, Set<Tag> tags) {
+        int pageNumber, int pageSize, @Nullable String search, Set<Tag> tags, Set<Mood> moods) {
     public EntryPageQuery {
         moods = Set.copyOf(moods);
         tags = Set.copyOf(tags);

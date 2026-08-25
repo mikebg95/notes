@@ -9,6 +9,11 @@ public class EntryVersionConflictException extends RuntimeException {
         this.currentVersion = currentVersion;
     }
 
+    public EntryVersionConflictException(long entryId, long currentVersion) {
+        super("Entry " + entryId + " was modified by another writer");
+        this.currentVersion = currentVersion;
+    }
+
     public long getCurrentVersion() {
         return currentVersion;
     }

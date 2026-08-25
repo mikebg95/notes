@@ -15,6 +15,12 @@ public class EntryEnricherFake implements EntryEnricher {
     private @Nullable String title;
     private @Nullable String content;
 
+    private Runnable duringEnrich = () -> {};
+
+    public void runDuringEnrich(Runnable action) {
+        this.duringEnrich = action;
+    }
+
     public void willReturn(Enrichment enrichment) {
         this.enrichment = enrichment;
     }
@@ -31,6 +37,9 @@ public class EntryEnricherFake implements EntryEnricher {
         if (shouldFail) {
             throw new EnrichmentFailedException("LLM model enrichment failed");
         }
+
+        duringEnrich.run();
+
         return enrichment;
     }
 
