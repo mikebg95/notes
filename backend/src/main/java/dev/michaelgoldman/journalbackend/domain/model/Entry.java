@@ -86,10 +86,11 @@ public final class Entry {
         return new Entry(id, version, title, content, enrichment, createdAt, lastUpdated, analysedAt);
     }
 
-    public Entry withEdit(String uncleanTitle, String uncleanContent, Enrichment enrichment, Instant editedAt) {
+    public Entry withEdit(
+            long expectedVersion, String uncleanTitle, String uncleanContent, Enrichment enrichment, Instant editedAt) {
         return new Entry(
                 this.id,
-                this.version,
+                expectedVersion,
                 clean(uncleanTitle),
                 clean(uncleanContent),
                 enrichment,

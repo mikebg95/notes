@@ -52,12 +52,12 @@ public class EntryService implements EntryUseCases {
             throw new EntryVersionConflictException(command.id(), persistedVersion);
         }
 
-        Instant editedAt = Instant.now();
         Entry edit = found.withEdit(
+                command.version(),
                 command.title(),
                 command.content(),
                 Enrichment.fromEdit(command.summary(), command.tags(), command.todos(), command.mood()),
-                editedAt);
+                Instant.now());
 
         return entryStore.update(edit);
     }

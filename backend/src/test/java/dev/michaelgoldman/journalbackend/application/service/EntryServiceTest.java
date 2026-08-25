@@ -265,14 +265,16 @@ class EntryServiceTest {
         void whenUserEditsEntryDuringAnalysis_shouldKeepTheEdit() {
             // Arrange
             Entry seeded = seedAnalysedEntry();
-            long createdId = Objects.requireNonNull(seeded.getId());
+            long seededId = Objects.requireNonNull(seeded.getId());
+            long seededVersion = Objects.requireNonNull(seeded.getVersion());
+
             enricherFake.runDuringEnrich(() -> {
-                Entry stored = storeFake.findById(createdId).orElseThrow();
-                storeFake.update(stored.withEdit(NEW_TITLE, NEW_CONTENT, stored.getEnrichment(), T3));
+                Entry stored = storeFake.findById(seededId).orElseThrow();
+                storeFake.update(stored.withEdit(seededVersion, NEW_TITLE, NEW_CONTENT, stored.getEnrichment(), T3));
             });
 
             // Act & Assert
-            Entry result = entryService.analyse(createdId);
+            Entry result = entryService.analyse(seededId);
 
             assertEquals(VALID_ENRICHMENT, result.getEnrichment());
             assertEquals(NEW_TITLE, result.getTitle());

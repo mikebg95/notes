@@ -130,7 +130,7 @@ class EntryTest {
     void whenEntryEdited_shouldMoveLastUpdatedAndKeepAnalysedAt() {
         Entry oldEntry = entryWith(VALID_ENRICHMENT, T2, T3);
 
-        Entry newEntry = oldEntry.withEdit("Modified title", "Modified content", VALID_ENRICHMENT, T4);
+        Entry newEntry = oldEntry.withEdit(VALID_VERSION, "Modified title", "Modified content", VALID_ENRICHMENT, T4);
 
         assertEquals(T4, newEntry.getLastUpdated());
         assertEquals(T3, newEntry.getAnalysedAt());
@@ -142,7 +142,8 @@ class EntryTest {
         Entry oldEntry = entryWith(VALID_ENRICHMENT, T2, T3);
         Enrichment newEnrichment = Enrichment.fromModel("New summary", List.of("z"), List.of("9"), "SAD");
 
-        Entry newEntry = oldEntry.withEdit("   Modified title   ", "   Modified content   ", newEnrichment, T4);
+        Entry newEntry =
+                oldEntry.withEdit(VALID_VERSION, "   Modified title   ", "   Modified content   ", newEnrichment, T4);
 
         assertEquals("Modified title", newEntry.getTitle());
         assertEquals("Modified content", newEntry.getContent());

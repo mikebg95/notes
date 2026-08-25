@@ -16,7 +16,7 @@ import org.jspecify.annotations.Nullable;
 public class EntryStoreFake implements EntryStore {
     private final Map<Long, Entry> entries = new HashMap<>();
     private long nextId = 0L;
-    private static final long INITIAL_VERSION = 1L;
+    private static final long INITIAL_VERSION = 0L;
     private @Nullable EntryPageQuery lastQuery;
 
     public long incrementVersion(long entryId) {
