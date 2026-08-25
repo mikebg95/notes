@@ -16,7 +16,6 @@ import dev.michaelgoldman.journalbackend.domain.model.Entry;
 import dev.michaelgoldman.journalbackend.domain.model.Tag;
 import java.time.Instant;
 import java.util.HashSet;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -45,12 +44,6 @@ public class EntryService implements EntryUseCases {
     @Override
     public Entry updateEntry(UpdateEntryCommand command) {
         Entry found = findOrThrow(command.id());
-
-        long persistedVersion = Objects.requireNonNull(found.getVersion());
-
-        if (persistedVersion != command.version()) {
-            throw new EntryVersionConflictException(command.id(), persistedVersion);
-        }
 
         Entry edit = found.withEdit(
                 command.version(),
