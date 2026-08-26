@@ -21,6 +21,7 @@ import dev.michaelgoldman.journalbackend.domain.model.Mood;
 import dev.michaelgoldman.journalbackend.domain.model.Tag;
 import dev.michaelgoldman.journalbackend.testsupport.EntryEnricherFake;
 import dev.michaelgoldman.journalbackend.testsupport.EntryStoreFake;
+import dev.michaelgoldman.journalbackend.testsupport.TagStoreFake;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -48,6 +49,7 @@ class EntryServiceTest {
     private static final String VALID_SEARCH = "Deploy";
     private static final Set<Mood> VALID_MOODS = Set.of(Mood.HAPPY, Mood.NEUTRAL);
     private static final Set<Tag> VALID_TAGS = Set.of(new Tag("work"), new Tag("gym"));
+    private static final Set<Tag> NEW_TAG_SET = Set.of(new Tag("x"), new Tag("y"), new Tag("z"));
 
     private static final String NEW_TITLE = "New Title";
     private static final String NEW_CONTENT = "Here is some new content.";
@@ -60,10 +62,11 @@ class EntryServiceTest {
     private static final Instant T2 = Instant.parse("2026-08-13T09:10:00Z");
     private static final Instant T3 = Instant.parse("2026-08-13T09:20:00Z");
 
-    private final EntryStoreFake storeFake = new EntryStoreFake();
+    private final EntryStoreFake entryStoreFake = new EntryStoreFake();
+    private final TagStoreFake tagStoreFake = new TagStoreFake();
     private final EntryEnricherFake enricherFake = new EntryEnricherFake();
 
-    private final EntryService entryService = new EntryService(storeFake, enricherFake);
+    private final EntryService entryService = new EntryService(entryStoreFake, tagStoreFake, enricherFake);
 
     @Nested
     class Create {
@@ -129,6 +132,20 @@ class EntryServiceTest {
             assertEquals(VALID_TITLE, enricherFake.lastTitle());
             assertEquals(VALID_CONTENT, enricherFake.lastContent());
         }
+
+        @Test
+        void shouldStoreTagsFromEnrichment() {
+            // Arrange
+            CreateEntryCommand command = new CreateEntryCommand(VALID_TITLE, VALID_CONTENT);
+            Enrichment willReturn = Enrichment.fromModel(VALID_SUMMARY, VALID_TAG_NAMES, VALID_TODOS, VALID_MOOD_NAME);
+            enricherFake.willReturn(willReturn);
+
+            // Act
+            entryService.create(command);
+
+            // Assert
+            assertEquals(VALID_TAGS, tagStoreFake.getTags());
+        }
     }
 
     @Nested
@@ -187,12 +204,25 @@ class EntryServiceTest {
         void whenVersionIsStale_shouldThrowEntryVersionConflictException() {
             // Arrange
             UpdateEntryCommand command = updateCommandFor(seedAnalysedEntry());
-            long currentVersion = storeFake.incrementVersion(command.id());
+            long currentVersion = entryStoreFake.incrementVersion(command.id());
 
             // Act & Assert
             EntryVersionConflictException thrown =
                     assertThrows(EntryVersionConflictException.class, () -> entryService.update(command));
             assertEquals(currentVersion, thrown.getCurrentVersion());
+        }
+
+        @Test
+        void shouldStoreTagsFromEdit() {
+            // Arrange
+            Entry seeded = seedAnalysedEntry();
+            UpdateEntryCommand command = updateCommandFor(seeded);
+
+            // Act
+            entryService.update(command);
+
+            // Assert
+            assertEquals(NEW_TAG_SET, tagStoreFake.getTags());
         }
     }
 
@@ -209,7 +239,7 @@ class EntryServiceTest {
             // Act
             Entry analysed = entryService.analyse(createdId);
             long analysedId = Objects.requireNonNull(analysed.getId());
-            Entry fetched = storeFake.findById(analysedId).orElseThrow();
+            Entry fetched = entryStoreFake.findById(analysedId).orElseThrow();
 
             // Assert
             assertEquals(VALID_TITLE, fetched.getTitle());
@@ -226,7 +256,7 @@ class EntryServiceTest {
             // Act
             Entry analysed = entryService.analyse(createdId);
             long analysedId = Objects.requireNonNull(analysed.getId());
-            Entry fetched = storeFake.findById(analysedId).orElseThrow();
+            Entry fetched = entryStoreFake.findById(analysedId).orElseThrow();
 
             // Assert
             assertEquals(AnalysisStatus.ANALYSED, fetched.getAnalysisStatus());
@@ -248,7 +278,7 @@ class EntryServiceTest {
 
             // Act
             entryService.analyse(createdId);
-            Entry fetched = storeFake.findById(createdId).orElseThrow();
+            Entry fetched = entryStoreFake.findById(createdId).orElseThrow();
 
             // Assert
             assertEquals(seeded.getEnrichment(), fetched.getEnrichment());
@@ -263,8 +293,9 @@ class EntryServiceTest {
             long seededVersion = Objects.requireNonNull(seeded.getVersion());
 
             enricherFake.willRunDuringEnrich(() -> {
-                Entry stored = storeFake.findById(seededId).orElseThrow();
-                storeFake.update(stored.withEdit(seededVersion, NEW_TITLE, NEW_CONTENT, stored.getEnrichment(), T3));
+                Entry stored = entryStoreFake.findById(seededId).orElseThrow();
+                entryStoreFake.update(
+                        stored.withEdit(seededVersion, NEW_TITLE, NEW_CONTENT, stored.getEnrichment(), T3));
             });
 
             // Act & Assert
@@ -274,6 +305,21 @@ class EntryServiceTest {
             assertEquals(NEW_TITLE, result.getTitle());
             assertEquals(NEW_CONTENT, result.getContent());
         }
+
+        @Test
+        void shouldStoreTagsFromEnrichment() {
+            // Arrange
+            Entry seeded = seedAnalysedEntry();
+            long seededId = Objects.requireNonNull(seeded.getId());
+            Enrichment willReturn = Enrichment.fromModel(VALID_SUMMARY, VALID_TAG_NAMES, VALID_TODOS, VALID_MOOD_NAME);
+            enricherFake.willReturn(willReturn);
+
+            // Act
+            entryService.analyse(seededId);
+
+            // Assert
+            assertEquals(VALID_TAGS, tagStoreFake.getTags());
+        }
     }
 
     @Nested
@@ -282,7 +328,7 @@ class EntryServiceTest {
         @Test
         void whenEntryExists_shouldReturnPersistedEntry() {
             // Arrange
-            Entry created = storeFake.create(Entry.of(VALID_TITLE, VALID_CONTENT, T1));
+            Entry created = entryStoreFake.create(Entry.of(VALID_TITLE, VALID_CONTENT, T1));
 
             // Act
             long createdId = Objects.requireNonNull(created.getId());
@@ -307,14 +353,14 @@ class EntryServiceTest {
         @Test
         void whenEntryExists_shouldRemoveItFromTheStore() {
             // Arrange
-            Entry entry = storeFake.create(Entry.of(VALID_TITLE, VALID_CONTENT, T1));
+            Entry entry = entryStoreFake.create(Entry.of(VALID_TITLE, VALID_CONTENT, T1));
             long id = Objects.requireNonNull(entry.getId());
 
             // Act
             entryService.deleteById(id);
 
             // Assert
-            assertTrue(storeFake.findById(id).isEmpty());
+            assertTrue(entryStoreFake.findById(id).isEmpty());
         }
 
         @Test
@@ -339,7 +385,7 @@ class EntryServiceTest {
             entryService.findPage(query);
 
             // Assert
-            assertEquals(expected, storeFake.lastQuery());
+            assertEquals(expected, entryStoreFake.lastQuery());
         }
 
         @Test
@@ -369,7 +415,7 @@ class EntryServiceTest {
             entryService.findPage(query);
 
             // Assert
-            assertEquals(VALID_TAGS, storeFake.lastQuery().tags());
+            assertEquals(VALID_TAGS, entryStoreFake.lastQuery().tags());
         }
 
         @Test
@@ -383,27 +429,27 @@ class EntryServiceTest {
             entryService.findPage(query);
 
             // Assert
-            assertEquals(VALID_TAGS, storeFake.lastQuery().tags());
+            assertEquals(VALID_TAGS, entryStoreFake.lastQuery().tags());
         }
     }
 
     private Entry storedCopyOf(Entry entry) {
-        return storeFake.findById(Objects.requireNonNull(entry.getId())).orElseThrow();
+        return entryStoreFake.findById(Objects.requireNonNull(entry.getId())).orElseThrow();
     }
 
     private Entry seedAnalysedEntry() {
-        Entry created = storeFake.create(Entry.of(VALID_TITLE, VALID_CONTENT, T1));
-        return storeFake.update(created.withAnalysis(VALID_ENRICHMENT, T2));
+        Entry created = entryStoreFake.create(Entry.of(VALID_TITLE, VALID_CONTENT, T1));
+        return entryStoreFake.update(created.withAnalysis(VALID_ENRICHMENT, T2));
     }
 
     private Entry seedNotAnalysedEntry() {
-        return storeFake.create(Entry.of(VALID_TITLE, VALID_CONTENT, T1));
+        return entryStoreFake.create(Entry.of(VALID_TITLE, VALID_CONTENT, T1));
     }
 
     private List<Entry> seedEntriesForPage() {
-        Entry created1 = storeFake.create(Entry.of("Entry 1", VALID_CONTENT, T1));
-        Entry created2 = storeFake.create(Entry.of("Entry 2", VALID_CONTENT, T1));
-        Entry created3 = storeFake.create(Entry.of("Entry 3", VALID_CONTENT, T1));
+        Entry created1 = entryStoreFake.create(Entry.of("Entry 1", VALID_CONTENT, T1));
+        Entry created2 = entryStoreFake.create(Entry.of("Entry 2", VALID_CONTENT, T1));
+        Entry created3 = entryStoreFake.create(Entry.of("Entry 3", VALID_CONTENT, T1));
 
         return List.of(created1, created2, created3);
     }

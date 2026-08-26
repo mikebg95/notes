@@ -8,6 +8,7 @@ import dev.michaelgoldman.journalbackend.application.port.in.UpdateEntryCommand;
 import dev.michaelgoldman.journalbackend.application.port.out.EntryEnricher;
 import dev.michaelgoldman.journalbackend.application.port.out.EntryPageQuery;
 import dev.michaelgoldman.journalbackend.application.port.out.EntryStore;
+import dev.michaelgoldman.journalbackend.application.port.out.TagStore;
 import dev.michaelgoldman.journalbackend.domain.exception.EnrichmentFailedException;
 import dev.michaelgoldman.journalbackend.domain.exception.EntryNotFoundException;
 import dev.michaelgoldman.journalbackend.domain.exception.EntryVersionConflictException;
@@ -21,10 +22,12 @@ import java.util.Set;
 
 public class EntryService implements EntryUseCases {
     private final EntryStore entryStore;
+    private final TagStore tagStore;
     private final EntryEnricher entryEnricher;
 
-    public EntryService(EntryStore entryStore, EntryEnricher entryEnricher) {
+    public EntryService(EntryStore entryStore, TagStore tagStore, EntryEnricher entryEnricher) {
         this.entryStore = entryStore;
+        this.tagStore = tagStore;
         this.entryEnricher = entryEnricher;
     }
 
@@ -35,6 +38,7 @@ public class EntryService implements EntryUseCases {
 
         try {
             Enrichment enrichment = entryEnricher.enrich(command.title(), command.content());
+            tagStore.ensureExist(enrichment.tags());
             return entryStore.update(created.withAnalysis(enrichment, Instant.now()));
         } catch (EnrichmentFailedException e) {
             return created;
@@ -52,6 +56,8 @@ public class EntryService implements EntryUseCases {
                 Enrichment.fromEdit(command.summary(), command.tags(), command.todos(), command.mood()),
                 Instant.now());
 
+        tagStore.ensureExist(edit.getEnrichment().tags());
+
         return entryStore.update(edit);
     }
 
@@ -63,6 +69,7 @@ public class EntryService implements EntryUseCases {
             Enrichment enrichment = entryEnricher.enrich(entry.getTitle(), entry.getContent());
             Instant analysedAt = Instant.now();
             Entry enriched = entry.withAnalysis(enrichment, analysedAt);
+            tagStore.ensureExist(enrichment.tags());
             entryStore.update(enriched);
 
             return enriched;
