@@ -132,3 +132,79 @@ So: **logic-in-services for orchestration, rich objects for identity and validit
 | 7 — Data | Relational, many-to-many | **Changed** — shared tags |
 
 Two levels change; five stay the same. Both changes trace to a concrete pressure — the LLM forces hexagonal, and shared tags force a many-to-many relationship.
+
+---
+
+## Transaction boundaries
+
+*Which steps hold a database connection, and for how long.*
+
+Writes in this application always run inside a transaction — Spring Data's repository
+methods are transactional whether or not anything is annotated. So the decision is never
+*whether* a step has a transaction. It is only ever **how wide the transaction is**, and
+in particular **what is allowed to happen while one is open**.
+
+### The create path
+
+One save request, four steps: three short transactions and one long gap that holds nothing.
+
+| # | Step | Transaction | Duration |
+|---|---|---|---|
+| 1 | `entryStore.create` — write the entry, title and content only | its own | milliseconds |
+| 2 | `entryEnricher.enrich` — call the LLM | **none open** | 2–10 seconds |
+| 3 | `tagStore.ensureExist` — find-or-create the tags | its own | milliseconds |
+| 4 | `entryStore.update` — write the analysis onto the saved entry | its own | milliseconds |
+
+**Why nothing may be open during step 2.** An open transaction holds a database
+connection for its whole lifetime, and the pool is small — about ten. A write occupies a
+connection for two milliseconds; the LLM call takes up to ten seconds. If the two share a
+transaction, ten concurrent saves occupy all ten connections doing nothing but waiting on
+an external provider, and every unrelated read blocks behind them. The symptom is an app
+that times out everywhere while the database sits idle: the failure points at Postgres and
+the cause is the AI provider. That misdirection is why this is written down.
+
+**Why steps 3 and 4 are separate transactions.** Two entries analysed at the same moment
+can both find a tag missing and both insert it; one loses on the unique index. Recovering
+is easy — read the row the winner wrote — but Postgres refuses every further statement in
+a transaction after one has failed, so the recovery requires a rollback first. If the tag
+insert shared a transaction with the entry write, that rollback would take the entry write
+with it, and a routine tag collision would cost the user their analysis.
+
+**Why step 1 exists at all.** Calling the LLM first and writing once at the end would be
+one write instead of two. It would also lose the user's writing to any crash, closed tab
+or provider outage during those ten seconds. ADR-0005 rejected that: the entry is written
+before the analysis is attempted, and two writes per create is the accepted price.
+
+**When step 2 fails.** Steps 3 and 4 never run. The entry stays `NOT_ANALYSED` and
+*Analyse again* is available. The user's writing is already safe.
+
+### The re-analysis path
+
+`analyse` has the same shape without step 1: read the entry, call the LLM with nothing
+open, ensure the tags, write the analysis. It carries one risk create does not — the user
+can edit the entry during those 2–10 seconds, so the final write can lose the version
+check. Per ADR-0007 the analysis result is then discarded silently and *Analyse again*
+stays available. There is no user waiting on that write, so there is nothing to report.
+
+### The edit path
+
+`update` makes no network call, so it has no gap: ensure the tags, then write the entry —
+two short transactions back to back. This is worth stating precisely because it is
+uneventful. The long gap in the create path is caused by the AI and by nothing else.
+
+### The read paths
+
+`findById`, `findPage` and `deleteById` are one short transaction each. Nothing to decide.
+
+### The two standing rules
+
+**No network call inside a transaction.** This is what places the transaction on the
+adapter's write rather than on the orchestrating service.
+
+**`EntryService` holds no `@Transactional` at all.** Each of the three transactions is one
+call out into an adapter. This is not a stylistic preference: `@Transactional` works
+through a proxy that wraps the bean, so a method calling another method on its own class
+bypasses it entirely and silently. Three transactions cannot come from three methods on
+one class — they have to be three calls into proxied beans. Steps 3 and 4 each need an
+explicit `@Transactional` on their adapter method, because each makes several repository
+calls that must commit together; step 1 is a single repository call and already has one.
