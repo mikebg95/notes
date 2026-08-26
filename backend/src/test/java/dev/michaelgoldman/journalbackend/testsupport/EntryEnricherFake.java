@@ -17,7 +17,7 @@ public class EntryEnricherFake implements EntryEnricher {
 
     private Runnable duringEnrich = () -> {};
 
-    public void runDuringEnrich(Runnable action) {
+    public void willRunDuringEnrich(Runnable action) {
         this.duringEnrich = action;
     }
 

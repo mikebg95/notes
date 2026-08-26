@@ -25,7 +25,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -37,18 +36,18 @@ class EntryServiceTest {
     private static final String VALID_TITLE = "Valid title";
     private static final String VALID_CONTENT = "Example of some valid content.";
     private static final String VALID_SUMMARY = "Some summary";
-    private static final List<String> VALID_TAGS_LIST = List.of("work", "gym");
+    private static final List<String> VALID_TAG_NAMES = List.of("work", "gym");
     private static final List<String> VALID_TODOS = List.of("1", "2");
     private static final Mood VALID_MOOD = Mood.NEUTRAL;
-    private static final String VALID_MOOD_STRING = "NEUTRAL";
+    private static final String VALID_MOOD_NAME = "NEUTRAL";
     private static final Enrichment VALID_ENRICHMENT =
-            Enrichment.fromEdit(VALID_SUMMARY, VALID_TAGS_LIST, VALID_TODOS, VALID_MOOD);
+            Enrichment.fromEdit(VALID_SUMMARY, VALID_TAG_NAMES, VALID_TODOS, VALID_MOOD);
 
     private static final int VALID_PAGE_NUMBER = 0;
     private static final int VALID_PAGE_SIZE = 20;
     private static final String VALID_SEARCH = "Deploy";
     private static final Set<Mood> VALID_MOODS = Set.of(Mood.HAPPY, Mood.NEUTRAL);
-    private static final Set<Tag> VALID_TAGS_SET = Set.of(new Tag("work"), new Tag("gym"));
+    private static final Set<Tag> VALID_TAGS = Set.of(new Tag("work"), new Tag("gym"));
 
     private static final String NEW_TITLE = "New Title";
     private static final String NEW_CONTENT = "Here is some new content.";
@@ -67,18 +66,16 @@ class EntryServiceTest {
     private final EntryService entryService = new EntryService(storeFake, enricherFake);
 
     @Nested
-    @DisplayName("CreateEntry")
-    class CreateEntry {
+    class Create {
         @Test
         void shouldReturnAnalysedEntry() {
             // Arrange
             CreateEntryCommand command = new CreateEntryCommand(VALID_TITLE, VALID_CONTENT);
-            Enrichment willReturn =
-                    Enrichment.fromModel(VALID_SUMMARY, VALID_TAGS_LIST, VALID_TODOS, VALID_MOOD_STRING);
+            Enrichment willReturn = Enrichment.fromModel(VALID_SUMMARY, VALID_TAG_NAMES, VALID_TODOS, VALID_MOOD_NAME);
             enricherFake.willReturn(willReturn);
 
             // Act
-            Entry entry = entryService.createEntry(command);
+            Entry entry = entryService.create(command);
             Enrichment enrichment = entry.getEnrichment();
 
             // Assert
@@ -93,12 +90,11 @@ class EntryServiceTest {
         void shouldPersistTheEnrichment() {
             // Arrange
             CreateEntryCommand command = new CreateEntryCommand(VALID_TITLE, VALID_CONTENT);
-            Enrichment willReturn =
-                    Enrichment.fromModel(VALID_SUMMARY, VALID_TAGS_LIST, VALID_TODOS, VALID_MOOD_STRING);
+            Enrichment willReturn = Enrichment.fromModel(VALID_SUMMARY, VALID_TAG_NAMES, VALID_TODOS, VALID_MOOD_NAME);
             enricherFake.willReturn(willReturn);
 
             // Act
-            Entry entry = entryService.createEntry(command);
+            Entry entry = entryService.create(command);
             Entry stored = storedCopyOf(entry);
 
             // Assert
@@ -112,7 +108,7 @@ class EntryServiceTest {
             enricherFake.willFail();
 
             // Act
-            Entry entry = entryService.createEntry(command);
+            Entry entry = entryService.create(command);
             Entry stored = storedCopyOf(entry);
 
             // Assert
@@ -127,7 +123,7 @@ class EntryServiceTest {
             CreateEntryCommand command = new CreateEntryCommand(VALID_TITLE, VALID_CONTENT);
 
             // Act
-            entryService.createEntry(command);
+            entryService.create(command);
 
             // Assert
             assertEquals(VALID_TITLE, enricherFake.lastTitle());
@@ -136,8 +132,7 @@ class EntryServiceTest {
     }
 
     @Nested
-    @DisplayName("UpdateEntry")
-    class UpdateEntry {
+    class Update {
         @Test
         void shouldReturnUpdatedEntry() {
             // Arrange
@@ -147,7 +142,7 @@ class EntryServiceTest {
             Enrichment newEnrichment = Enrichment.fromEdit(NEW_SUMMARY, NEW_TAGS, NEW_TODOS, NEW_MOOD);
 
             // Act
-            Entry updated = entryService.updateEntry(command);
+            Entry updated = entryService.update(command);
 
             // Assert
             assertEquals(seeded.getId(), updated.getId());
@@ -165,7 +160,7 @@ class EntryServiceTest {
             UpdateEntryCommand command = updateCommandFor(seedAnalysedEntry());
 
             // Act
-            Entry updated = entryService.updateEntry(command);
+            Entry updated = entryService.update(command);
 
             // Assert
             assertEquals(AnalysisStatus.OUT_OF_DATE, updated.getAnalysisStatus());
@@ -181,11 +176,11 @@ class EntryServiceTest {
                     VALID_CONTENT,
                     VALID_SUMMARY,
                     VALID_MOOD,
-                    VALID_TAGS_LIST,
+                    VALID_TAG_NAMES,
                     VALID_TODOS);
 
             // Act & Assert
-            assertThrows(EntryNotFoundException.class, () -> entryService.updateEntry(command));
+            assertThrows(EntryNotFoundException.class, () -> entryService.update(command));
         }
 
         @Test
@@ -196,13 +191,12 @@ class EntryServiceTest {
 
             // Act & Assert
             EntryVersionConflictException thrown =
-                    assertThrows(EntryVersionConflictException.class, () -> entryService.updateEntry(command));
+                    assertThrows(EntryVersionConflictException.class, () -> entryService.update(command));
             assertEquals(currentVersion, thrown.getCurrentVersion());
         }
     }
 
     @Nested
-    @DisplayName("Analyse")
     class Analyse {
 
         @Test
@@ -268,7 +262,7 @@ class EntryServiceTest {
             long seededId = Objects.requireNonNull(seeded.getId());
             long seededVersion = Objects.requireNonNull(seeded.getVersion());
 
-            enricherFake.runDuringEnrich(() -> {
+            enricherFake.willRunDuringEnrich(() -> {
                 Entry stored = storeFake.findById(seededId).orElseThrow();
                 storeFake.update(stored.withEdit(seededVersion, NEW_TITLE, NEW_CONTENT, stored.getEnrichment(), T3));
             });
@@ -283,7 +277,6 @@ class EntryServiceTest {
     }
 
     @Nested
-    @DisplayName("FindEntryById")
     class FindById {
 
         @Test
@@ -309,7 +302,6 @@ class EntryServiceTest {
     }
 
     @Nested
-    @DisplayName("DeleteEntryById")
     class DeleteById {
 
         @Test
@@ -333,16 +325,15 @@ class EntryServiceTest {
     }
 
     @Nested
-    @DisplayName("FindEntriesPage")
     class FindPage {
 
         @Test
         void whenValidQueryPassed_shouldPassCanonicalQueryToStore() {
             // Arrange
             FindEntriesQuery query = new FindEntriesQuery(
-                    VALID_PAGE_NUMBER, VALID_PAGE_SIZE, VALID_SEARCH, VALID_TAGS_LIST, VALID_MOODS);
+                    VALID_PAGE_NUMBER, VALID_PAGE_SIZE, VALID_SEARCH, VALID_TAG_NAMES, VALID_MOODS);
             EntryPageQuery expected =
-                    new EntryPageQuery(VALID_PAGE_NUMBER, VALID_PAGE_SIZE, VALID_SEARCH, VALID_TAGS_SET, VALID_MOODS);
+                    new EntryPageQuery(VALID_PAGE_NUMBER, VALID_PAGE_SIZE, VALID_SEARCH, VALID_TAGS, VALID_MOODS);
 
             // Act
             entryService.findPage(query);
@@ -356,7 +347,7 @@ class EntryServiceTest {
             // Arrange
             List<Entry> seededEntries = seedEntriesForPage();
             FindEntriesQuery query = new FindEntriesQuery(
-                    VALID_PAGE_NUMBER, VALID_PAGE_SIZE, VALID_SEARCH, VALID_TAGS_LIST, VALID_MOODS);
+                    VALID_PAGE_NUMBER, VALID_PAGE_SIZE, VALID_SEARCH, VALID_TAG_NAMES, VALID_MOODS);
 
             // Act
             Page<Entry> page = entryService.findPage(query);
@@ -378,7 +369,7 @@ class EntryServiceTest {
             entryService.findPage(query);
 
             // Assert
-            assertEquals(VALID_TAGS_SET, storeFake.lastQuery().tags());
+            assertEquals(VALID_TAGS, storeFake.lastQuery().tags());
         }
 
         @Test
@@ -392,7 +383,7 @@ class EntryServiceTest {
             entryService.findPage(query);
 
             // Assert
-            assertEquals(VALID_TAGS_SET, storeFake.lastQuery().tags());
+            assertEquals(VALID_TAGS, storeFake.lastQuery().tags());
         }
     }
 

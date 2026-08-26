@@ -4,5 +4,5 @@ import dev.michaelgoldman.journalbackend.domain.model.Tag;
 import java.util.List;
 
 public interface TagUseCases {
-    List<Tag> findAllTags();
+    List<Tag> findAll();
 }

@@ -5,13 +5,13 @@ import dev.michaelgoldman.journalbackend.domain.exception.EntryVersionConflictEx
 import dev.michaelgoldman.journalbackend.domain.model.Entry;
 
 public interface EntryUseCases {
-    Entry createEntry(CreateEntryCommand command);
+    Entry create(CreateEntryCommand command);
 
     /**
      * @throws EntryNotFoundException if no entry with this id exists
      * @throws EntryVersionConflictException if the entry was modified since the version in the command
      */
-    Entry updateEntry(UpdateEntryCommand command);
+    Entry update(UpdateEntryCommand command);
 
     /**
      * @throws EntryNotFoundException if no entry with this id exists

@@ -4,7 +4,7 @@ import dev.michaelgoldman.journalbackend.domain.model.Mood;
 import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
-public record TodoDetail(
+public record TodoWithEntry(
         String text,
         long entryId,
         String entryTitle,

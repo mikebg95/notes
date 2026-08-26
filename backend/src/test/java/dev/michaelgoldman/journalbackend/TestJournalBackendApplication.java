@@ -2,10 +2,10 @@ package dev.michaelgoldman.journalbackend;
 
 import org.springframework.boot.SpringApplication;
 
-public class TestJournalbackendApplication {
+public class TestJournalBackendApplication {
 
     static void main(String[] args) {
-        SpringApplication.from(JournalbackendApplication::main)
+        SpringApplication.from(JournalBackendApplication::main)
                 .with(TestcontainersConfiguration.class)
                 .run(args);
     }

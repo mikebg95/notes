@@ -14,7 +14,7 @@ public class TagService implements TagUseCases {
     }
 
     @Override
-    public List<Tag> findAllTags() {
+    public List<Tag> findAll() {
         return tagStore.findAll();
     }
 }

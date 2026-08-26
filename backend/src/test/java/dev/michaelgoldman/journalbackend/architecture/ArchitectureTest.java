@@ -16,10 +16,10 @@ import com.tngtech.archunit.core.importer.Location;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
-import dev.michaelgoldman.journalbackend.JournalbackendApplication;
+import dev.michaelgoldman.journalbackend.JournalBackendApplication;
 
 @AnalyzeClasses(
-        packagesOf = JournalbackendApplication.class,
+        packagesOf = JournalBackendApplication.class,
         importOptions = {ImportOption.DoNotIncludeTests.class, ArchitectureTest.DoNotIncludeGeneratedApi.class})
 class ArchitectureTest {
 

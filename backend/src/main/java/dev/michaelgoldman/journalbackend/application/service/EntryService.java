@@ -29,7 +29,7 @@ public class EntryService implements EntryUseCases {
     }
 
     @Override
-    public Entry createEntry(CreateEntryCommand command) {
+    public Entry create(CreateEntryCommand command) {
         Instant createdAt = Instant.now();
         Entry created = entryStore.create(Entry.of(command.title(), command.content(), createdAt));
 
@@ -42,7 +42,7 @@ public class EntryService implements EntryUseCases {
     }
 
     @Override
-    public Entry updateEntry(UpdateEntryCommand command) {
+    public Entry update(UpdateEntryCommand command) {
         Entry found = findOrThrow(command.id());
 
         Entry edit = found.withEdit(
